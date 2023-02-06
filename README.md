@@ -5,7 +5,7 @@ This project is developed and maintained by the author Giacomo Alberto Dell'Olio
 
 The codes are executable on Google Earth Engine, simply copy and paste and run them.
 
-## Test Operators
+## Testers
 1. Acquafredda Anna
 2. Marrone Antonella
 3. Simone Vito
