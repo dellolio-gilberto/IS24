@@ -1,0 +1,378 @@
+var helpButton = ui.Button({
+    label: 'About', 
+    onClick: showHelp,
+    style: {stretch: 'both', textAlign: 'center'}
+});
+Map.add(helpButton);
+
+var closeButton = ui.Button({label: 'close', onClick: close});
+
+function showHelp() {
+  c.controlPanel.style().set('shown', true);
+}
+
+function close(){
+  c.controlPanel.style().set('shown', false);
+}
+
+var c = {};
+c.controlPanel = ui.Panel();
+c.dividers = {};
+c.dividers.divider1 = ui.Panel();
+c.map = ui.Map();
+
+c.info = {};
+c.info.titleLabel = ui.Label('Normalized Difference Water Index (NDWI)');
+c.info.aboutLabel = ui.Label(
+  'La mappa mostra il cambiamento delle acque superficiali nell\'intervallo di tempo tra il 1984 e il 2022, '+
+  'dopo aver disegnato l\'area di interesse mostrerà anche due grafici '+
+  'che risalteranno l\'andamento delle acque superficiali nella zona specificata. '+
+  'Creata per un progetto di natura universitaria, speriamo possa interessare ed essere '+
+  'da pietra miliare per il percorso di noi e di chiunque altro si approcci al mondo '+
+  'della programmazione e dell\'analisi dei dati geospaziali.');
+c.info.paperLabel = ui.Label({
+  value: 'Other project',
+  targetUrl: 'https://alberto-dellolio.users.earthengine.app/'
+});
+c.info.websiteLabel = ui.Label({
+  value: 'Apri un\'altra scheda',
+  targetUrl: 'https://www.google.it/'
+});
+c.info.panel = ui.Panel([
+  c.info.titleLabel, c.info.aboutLabel,
+  c.info.paperLabel, c.info.websiteLabel
+]);
+
+c.controlPanel.add(c.info.panel);
+c.controlPanel.add(c.dividers.divider1);
+
+Map.add(c.controlPanel);
+
+var s = {};
+
+s.opacityWhiteMed = {
+  backgroundColor: 'rgba(255, 255, 255, 0.5)'
+};
+s.opacityWhiteNone = {
+  backgroundColor: 'rgba(255, 255, 255, 0)'
+};
+s.aboutText = {
+  fontSize: '13px',
+  color: '505050'
+};
+s.widgetTitle = {
+  fontSize: '15px',
+  fontWeight: 'bold',
+  margin: '8px 8px 0px 8px',
+  color: '383838'
+};
+s.stretchHorizontal = {
+  stretch: 'horizontal'
+};
+s.noTopMargin = {
+  margin: '0px 8px 8px 8px'
+};
+s.smallBottomMargin = {
+  margin: '8px 8px 4px 8px'
+};
+s.bigTopMargin = {
+  margin: '24px 8px 8px 8px'
+};
+s.divider = {
+  backgroundColor: 'F0F0F0',
+  height: '4px',
+  margin: '20px 0px'
+};
+
+c.info.titleLabel.style().set({
+  fontSize: '20px',
+  fontWeight: 'bold'
+});
+c.info.titleLabel.style().set(s.bigTopMargin);
+c.info.aboutLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.smallBottomMargin);
+c.info.websiteLabel.style().set(s.aboutText);
+c.info.websiteLabel.style().set(s.noTopMargin);
+
+c.controlPanel.style().set({
+  width: '275px',
+  padding: '0px',
+  shown: false
+});
+
+c.controlPanel.add(closeButton);
+//////////////////////////////////////////////////////////////
+// Asset List
+/////////////////////////////////////////////////////////////
+
+var gsw = ee.Image('JRC/GSW1_0/GlobalSurfaceWater');
+var occurrence = gsw.select('occurrence');
+var change = gsw.select("change_abs");
+var transition = gsw.select('transition');
+
+
+///////////////////////////////////////////////////////////////
+//modifica area
+//////////////////////////////////////////////////////////////
+var drawingTools = Map.drawingTools();
+drawingTools.setShown(false);
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'roi', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawRectangle() {
+  clearGeometry();
+  drawingTools.setShape('rectangle');
+  drawingTools.draw();
+}
+
+function drawPolygon() {
+  clearGeometry();
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+}
+
+function drawPoint() {
+  clearGeometry();
+  drawingTools.setShape('point');
+  drawingTools.draw();
+}
+
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+////////////////////////////////chartPanel istogramma
+var chartPanelI = ui.Panel({
+  style:
+      {height: '235px', width: '300px', position: 'bottom-right', shown: false}
+});
+
+Map.add(chartPanelI);
+
+////////////////////////////////istogramma
+function chartHistrogram(aoi) {
+  if (!chartPanelI.style().get('shown')) {
+    chartPanelI.style().set('shown', true);
+  }
+
+  drawingTools.setShape(null);
+
+  var mapScale = Map.getScale();
+  var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+
+  // Chart histogram
+  var histogram = ui.Chart.image.histogram({
+  image: change,
+  region: aoi,
+  scale: 30,
+  minBucketWidth: 10
+  });
+  histogram.setOptions({
+    titlePostion: 'Histogram of surface water change intensity.',
+    vAxis: {title: 'Frequency'}
+  });
+
+
+  chartPanelI.widgets().reset([histogram]);
+  
+}
+
+drawingTools.onDraw(ui.util.debounce(chartHistrogram, 500));
+drawingTools.onEdit(ui.util.debounce(chartHistrogram, 500));
+////////////////////////////////fine istogramma
+
+var symbol = {
+  rectangle: '⬛',
+  polygon: '🔺',
+  point: '📍',
+};
+
+
+var controlPanel = ui.Panel({
+  widgets: [
+    ui.Label('1. Select a drawing mode.'),
+    ui.Button({
+      label: symbol.rectangle + ' Rectangle',
+      onClick: drawRectangle,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.polygon + ' Polygon',
+      onClick: drawPolygon,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Label('2. Draw a geometry.'),
+    ui.Label('3. Wait for chart to render.'),
+    ui.Label(
+        '4. Repeat 1-3 or edit/move\ngeometry for a new chart.',
+        {whiteSpace: 'pre'})
+  ],
+  style: {position: 'bottom-left'},
+  layout: null,
+});
+
+Map.add(controlPanel);
+//////////////////////////////////////////////////////////////
+// Constants
+//////////////////////////////////////////////////////////////
+
+var VIS_OCCURRENCE = {
+    min: 0,
+    max: 100,
+    palette: ['red', 'blue']
+};
+var VIS_CHANGE = {
+    min: -50,
+    max: 50,
+    palette: ['red', 'black', 'limegreen']
+};
+var VIS_WATER_MASK = {
+  palette: ['white', 'black']
+};
+
+//////////////////////////////////////////////////////////////
+// Helper functions
+//////////////////////////////////////////////////////////////
+
+function createFeature(transition_class_stats) {
+  transition_class_stats = ee.Dictionary(transition_class_stats);
+  var class_number = transition_class_stats.get('transition_class_value');
+  var result = {
+      transition_class_number: class_number,
+      transition_class_name: lookup_names.get(class_number),
+      transition_class_palette: lookup_palette.get(class_number),
+      area_m2: transition_class_stats.get('sum')
+  };
+  return ee.Feature(null, result);   // Creates a feature without a geometry.
+}
+
+function createPieChartSliceDictionary(fc) {
+  return ee.List(fc.aggregate_array("transition_class_palette"))
+    .map(function(p) { return {'color': p}; }).getInfo();
+}
+
+function numToString(num) {
+  return ee.Number(num).format();
+}
+
+//////////////////////////////////////////////////////////////
+// Calculations
+//////////////////////////////////////////////////////////////
+
+var lookup_names = ee.Dictionary.fromLists(
+    ee.List(gsw.get('transition_class_values')).map(numToString),
+    gsw.get('transition_class_names')
+);
+var lookup_palette = ee.Dictionary.fromLists(
+    ee.List(gsw.get('transition_class_values')).map(numToString),
+    gsw.get('transition_class_palette')
+);
+
+var water_mask = occurrence.gt(90).mask(1);
+
+///////////////////////////////////////////////////////////////////////////////////
+function Summarize(transition, aoi, roi){
+  var area_image_with_transition_class = ee.Image.pixelArea().addBands(transition);
+  roi=aoi;
+  var reduction_results = area_image_with_transition_class.reduceRegion({
+    reducer: ee.Reducer.sum().group({
+      groupField: 1,
+      groupName: 'transition_class_value',
+    }),
+    geometry: roi,
+    scale: 30,
+    bestEffort: true,
+  });
+  print('reduction_results', reduction_results);
+
+  var roi_stats = ee.List(reduction_results.get('groups'));
+
+  var transition_fc = ee.FeatureCollection(roi_stats.map(createFeature));
+  print('transition_fc', transition_fc);
+
+  return transition_fc;
+}
+///////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////chartPanel torta
+var chartPanelT = ui.Panel({
+  style:
+      {height: '235px', width: '300px', position: 'middle-right', shown: false}
+});
+
+Map.add(chartPanelT);
+
+////////////////////////////////torta
+function chartPie(aoi) {
+  
+  var transition_fc=Summarize(transition, aoi, roi);
+  if (!chartPanelT.style().get('shown')) {
+    chartPanelT.style().set('shown', true);
+  }
+
+  drawingTools.setShape(null);
+
+  var mapScale = Map.getScale();
+  var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+  
+  // Chart pie
+  var transition_summary_chart = ui.Chart.feature.byFeature({
+    features: transition_fc,
+    xProperty: 'transition_class_name',
+    yProperties: ['area_m2', 'transition_class_number']
+  })
+  .setChartType('PieChart')
+  .setOptions({
+    titlePostion: 'Summary of transition class areas',
+    slices: createPieChartSliceDictionary(transition_fc),
+    sliceVisibilityThreshold: 0  // Don't group small slices.
+  });
+
+  chartPanelT.widgets().reset([transition_summary_chart]);
+}
+
+drawingTools.onDraw(ui.util.debounce(chartPie, 500));
+drawingTools.onEdit(ui.util.debounce(chartPie, 500));
+////////////////////////////////fine torta
+
+//////////////////////////////////////////////////////////////
+// Initialize Map Location
+//////////////////////////////////////////////////////////////
+Map.setCenter(-67.08,-18.80, 10);     //Lago Poopo
+//////////////////////////////////////////////////////////////
+// Map Layers
+//////////////////////////////////////////////////////////////
+
+Map.addLayer({
+  eeObject: water_mask,
+  visParams: VIS_WATER_MASK,
+  name: '90% occurrence water mask',
+  shown: false
+});
+Map.addLayer({
+  eeObject: occurrence.updateMask(occurrence.divide(100)),
+  name: "Water Occurrence (1984-2022)",
+  visParams: VIS_OCCURRENCE,
+  shown: false
+});
+Map.addLayer({
+  eeObject: change,
+  visParams: VIS_CHANGE,
+  name: 'occurrence change intensity',
+  shown: false
+});
+Map.addLayer({
+  eeObject: transition,
+  name: 'Transition classes (1984-2022)',
+});
+
+Map.setOptions('Hybrid');

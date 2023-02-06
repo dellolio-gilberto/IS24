@@ -1,0 +1,246 @@
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+var chartPanelIns = ui.Panel({
+  style: 
+      {position: 'top-left', shown: true}
+});
+
+// Crea i campi di input per le date di inizio e fine
+var Side = ui.Textbox({placeholder: 'Lato del quadrato in km', onChange: update});
+chartPanelIns.add(Side);
+Map.add(chartPanelIns);
+
+
+function update() {
+  if (Side.getValue()) {
+    // Mostra il pannello se tutti i textbox sono compilati
+    controlPanel.style().set('shown', true);
+  } else {
+    // Nascondi il pannello se uno o più textbox non sono compilati
+    controlPanel.style().set('shown', false);
+  }
+}
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+var helpButton = ui.Button({
+    label: 'About', 
+    onClick: showHelp,
+    style: {stretch: 'both', textAlign: 'center'}
+});
+Map.add(helpButton);
+
+var closeButton = ui.Button({label: 'close', onClick: close});
+
+function showHelp() {
+  c.controlPanel.style().set('shown', true);
+}
+
+function close(){
+  c.controlPanel.style().set('shown', false);
+}
+
+var c = {};
+c.controlPanel = ui.Panel();
+c.dividers = {};
+c.dividers.divider1 = ui.Panel();
+c.map = ui.Map();
+
+c.info = {};
+c.info.titleLabel = ui.Label('Digital Elevation Model (DEM)');
+c.info.aboutLabel = ui.Label(
+  'La mappa mostra l\'andamento delle altitutidi mondiali e permette di visualizzare una porzione '
+  +'di essa in un\'altra scheda, ' +
+  'questa verrà poi integrata in unity per la creazione di mappe 3D ispirate alla realtà'  +
+  'Creata per un progetto di natura universitaria, speriamo possa interessare ed essere '+
+  'da pietra miliare per il percorso di noi e di chiunque altro si approcci al mondo '+
+  'della programmazione e dell\'analisi dei dati geospaziali.');
+c.info.paperLabel = ui.Label({
+  value: 'Other project',
+  targetUrl: 'https://alberto-dellolio.users.earthengine.app/'
+});
+c.info.websiteLabel = ui.Label({
+  value: 'Apri un\'altra scheda',
+  targetUrl: 'https://www.google.it/'
+});
+c.info.panel = ui.Panel([
+  c.info.titleLabel, c.info.aboutLabel,
+  c.info.paperLabel, c.info.websiteLabel
+]);
+
+c.controlPanel.add(c.info.panel);
+c.controlPanel.add(c.dividers.divider1);
+
+Map.add(c.controlPanel);
+
+// Definisce stili css (riutilizzabili) per i widgets
+var s = {};
+
+s.opacityWhiteMed = {
+  backgroundColor: 'rgba(255, 255, 255, 0.5)'
+};
+s.opacityWhiteNone = {
+  backgroundColor: 'rgba(255, 255, 255, 0)'
+};
+s.aboutText = {
+  fontSize: '13px',
+  color: '505050'
+};
+s.widgetTitle = {
+  fontSize: '15px',
+  fontWeight: 'bold',
+  margin: '8px 8px 0px 8px',
+  color: '383838'
+};
+s.stretchHorizontal = {
+  stretch: 'horizontal'
+};
+s.noTopMargin = {
+  margin: '0px 8px 8px 8px'
+};
+s.smallBottomMargin = {
+  margin: '8px 8px 4px 8px'
+};
+s.bigTopMargin = {
+  margin: '24px 8px 8px 8px'
+};
+s.divider = {
+  backgroundColor: 'F0F0F0',
+  height: '4px',
+  margin: '20px 0px'
+};
+
+// Set widget style.
+c.info.titleLabel.style().set({
+  fontSize: '20px',
+  fontWeight: 'bold'
+});
+c.info.titleLabel.style().set(s.bigTopMargin);
+c.info.aboutLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.smallBottomMargin);
+c.info.websiteLabel.style().set(s.aboutText);
+c.info.websiteLabel.style().set(s.noTopMargin);
+
+c.controlPanel.style().set({
+  width: '275px',
+  padding: '0px',
+  shown: false
+});
+
+c.controlPanel.add(closeButton);
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+var drawingTools = Map.drawingTools();
+drawingTools.setShown(false);
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'roi', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawPoint() {
+  clearGeometry();
+  drawingTools.setShape('point');
+  drawingTools.draw();
+}
+
+  // Ottiene la geometria dell'immagine
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+  // Drawing mode off
+  drawingTools.setShape(null);
+
+  // Riduzione della scala
+  var mapScale = Map.getScale();
+  var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+
+var symbol = {
+  rectangle: '⬛',
+  polygon: '🔺',
+  point: '📍',
+};
+
+
+var controlPanel = ui.Panel({
+  widgets: [
+    ui.Label('1. Select the drawing mode.'),
+    ui.Button({
+      label: symbol.point + ' Point',
+      onClick: drawPoint,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Label('2. Draw a geometry.'),
+    ui.Label('3. Wait for link to render.'),
+    ui.Label(
+        '4. Repeat 1-3 or edit/move\ngeometry for a new link.',
+        {whiteSpace: 'pre'})
+  ],
+  style: {position: 'bottom-left', shown:false},
+  layout: null,
+});
+
+Map.add(controlPanel);
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+var dem = ee.Image('USGS/SRTMGL1_003');
+
+var vis_parms = {
+  min: -10,
+  max: 6500,
+  palette: ['000000','191919', '333333', '4C4C4C', 
+  '666666', '7F7F7F', '999999', 'B2B2B2', 'FFFFFF']
+};
+
+Map.addLayer (dem.updateMask(dem.gt(0)), vis_parms, "DEM");
+////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+function clip(){
+  var aoi = drawingTools.layers().get(0).getEeObject();
+  var lato = Side.getValue()*1000;
+  var square = aoi.buffer(ee.Number(Side.getValue()*1000).divide(2), 1).bounds().transform('EPSG:3857', 1);
+  var cliproi = ((dem)
+  .reduceResolution({
+    reducer: ee.Reducer.mean(),
+    maxPixels: 3840 
+    // range 126 km max 
+    //1024 range 250 km max
+  }).reproject({
+      crs: 'EPSG:3857',
+      scale: 60
+    })).visualize(vis_parms).clip(square);
+//  .reproject('EPSG:3857').clip(square));
+  Map.addLayer(square, null, 'point');
+  Map.centerObject(square);
+  return cliproi;
+}
+
+var PanelImage = ui.Panel({
+  style:
+      {height: '50px', width: '130px', position: 'bottom-right', shown: false}
+});
+Map.add(PanelImage);
+
+function png(){
+  if(roi){
+    drawingTools.setShape(null);
+    PanelImage.style().set('shown', true);
+    var thumbUrl = clip().getThumbURL({
+      'format': 'png'
+    });
+    var link = ui.Label({
+      value: 'View Image',
+      targetUrl: thumbUrl
+    });
+    PanelImage.widgets().reset([link]);
+  }
+}
+
+drawingTools.onDraw(ui.util.debounce(png, 500));
+drawingTools.onEdit(ui.util.debounce(png, 500));

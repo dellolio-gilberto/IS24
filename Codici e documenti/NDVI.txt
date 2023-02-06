@@ -1,0 +1,365 @@
+var helpButton = ui.Button({
+    label: 'About', 
+    onClick: showHelp,
+    style: {stretch: 'both', textAlign: 'center'}
+});
+Map.add(helpButton);
+
+var closeButton = ui.Button({label: 'close', onClick: close});
+
+function showHelp() {
+  c.controlPanel.style().set('shown', true);
+}
+
+function close(){
+  c.controlPanel.style().set('shown', false);
+}
+
+var c = {};
+c.controlPanel = ui.Panel();
+c.dividers = {};
+c.dividers.divider1 = ui.Panel();
+c.map = ui.Map();
+
+c.info = {};
+c.info.titleLabel = ui.Label('Normalized Difference Vegetation Index (NDVI)');
+c.info.aboutLabel = ui.Label(
+  'Dopo aver scelto l\'intervallo di tempo e la nazione a cui appartiene l\'area designata,' +
+  ' l\'applicazione crea una GIF che mostra il cambiamento della vegetezione e un grafico'  +
+  ' che ci permette di visualizzare quantitativamente tale variazione.' +
+  ' Creata per un progetto di natura universitaria, speriamo possa interessare ed essere '+
+  'da pietra miliare per il percorso di noi e di chiunque altro si approcci al mondo '+
+  'della programmazione e dell\'analisi dei dati geospaziali.');
+c.info.paperLabel = ui.Label({
+  value: 'Other project',
+  targetUrl: 'https://alberto-dellolio.users.earthengine.app/'
+});
+c.info.websiteLabel = ui.Label({
+  value: 'List of FIPS country codes',
+  targetUrl: 'https://en.wikipedia.org/wiki/List_of_FIPS_country_codes'
+});
+c.info.panel = ui.Panel([
+  c.info.titleLabel, c.info.aboutLabel,
+  c.info.paperLabel, c.info.websiteLabel
+]);
+
+c.controlPanel.add(c.info.panel);
+c.controlPanel.add(c.dividers.divider1);
+
+Map.add(c.controlPanel);
+
+var s = {};
+
+s.opacityWhiteMed = {
+  backgroundColor: 'rgba(255, 255, 255, 0.5)'
+};
+s.opacityWhiteNone = {
+  backgroundColor: 'rgba(255, 255, 255, 0)'
+};
+s.aboutText = {
+  fontSize: '13px',
+  color: '505050'
+};
+s.widgetTitle = {
+  fontSize: '15px',
+  fontWeight: 'bold',
+  margin: '8px 8px 0px 8px',
+  color: '383838'
+};
+s.stretchHorizontal = {
+  stretch: 'horizontal'
+};
+s.noTopMargin = {
+  margin: '0px 8px 8px 8px'
+};
+s.smallBottomMargin = {
+  margin: '8px 8px 4px 8px'
+};
+s.bigTopMargin = {
+  margin: '24px 8px 8px 8px'
+};
+s.divider = {
+  backgroundColor: 'F0F0F0',
+  height: '4px',
+  margin: '20px 0px'
+};
+
+c.info.titleLabel.style().set({
+  fontSize: '20px',
+  fontWeight: 'bold'
+});
+c.info.titleLabel.style().set(s.bigTopMargin);
+c.info.aboutLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.aboutText);
+c.info.paperLabel.style().set(s.smallBottomMargin);
+c.info.websiteLabel.style().set(s.aboutText);
+c.info.websiteLabel.style().set(s.noTopMargin);
+
+c.controlPanel.style().set({
+  width: '275px',
+  padding: '0px',
+  shown: false
+});
+
+c.controlPanel.add(closeButton);
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+var chartPanelIns = ui.Panel({
+  style: 
+      {position: 'top-left', shown: true}
+});
+
+// Crea i campi di input per le date di inizio e fine
+var startDate = ui.Textbox({placeholder: 'YYYY-MM-DD', onChange: update});
+var endDate = ui.Textbox({placeholder: 'YYYY-MM-DD', onChange: update});
+var co = ui.Textbox({placeholder: 'e.g. IT', onChange: update});
+// Aggiungi i campi di input al pannello widget
+chartPanelIns.add(startDate);
+chartPanelIns.add(endDate);
+chartPanelIns.add(co);
+Map.add(chartPanelIns);
+
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+var chartPanel = ui.Panel({
+  style:
+      {height: '235px', width: '300px', position: 'top-right', shown: false}
+});
+
+Map.add(chartPanel);
+
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+var drawingTools = Map.drawingTools();
+drawingTools.setShown(false);
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'roi', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawRectangle() {
+  clearGeometry();
+  drawingTools.setShape('rectangle');
+  drawingTools.draw();
+}
+
+function drawPolygon() {
+  clearGeometry();
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+}
+
+function drawPoint() {
+  clearGeometry();
+  drawingTools.setShape('point');
+  drawingTools.draw();
+}
+
+  var aoi = drawingTools.layers().get(0).getEeObject();
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+
+var symbol = {
+  rectangle: '⬛',
+  polygon: '🔺',
+  point: '📍',
+};
+
+
+var controlPanel = ui.Panel({
+  widgets: [
+    ui.Label('1. Select a drawing mode.'),
+    ui.Button({
+      label: symbol.rectangle + ' Rectangle',
+      onClick: drawRectangle,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Button({
+      label: symbol.polygon + ' Polygon',
+      onClick: drawPolygon,
+      style: {stretch: 'horizontal'}
+    }),
+    ui.Label('2. Draw a geometry.'),
+    ui.Label('3. Wait for chart to render.'),
+    ui.Label(
+        '4. Repeat 1-3 or edit/move\ngeometry for a new chart.',
+        {whiteSpace: 'pre'})
+  ],
+  style: {position: 'bottom-left', shown: false},
+  layout: null,
+});
+
+Map.add(controlPanel);
+/////////////////////////////////////////////////////////////////////////
+function update() {
+  if (startDate.getValue() && endDate.getValue() && co.getValue()) {
+    // Mostra il pannello se tutti i textbox sono compilati
+    controlPanel.style().set('shown', true);
+  } else {
+    // Nascondi il pannello se uno o più textbox non sono compilati
+    controlPanel.style().set('shown', false);
+  }
+}
+
+//Map.add(controlPanel);
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+//MAIN INIZIATO
+function Main(aoi, roi){
+  
+  var col = ee.ImageCollection('MODIS/061/MOD13A2').select('NDVI');
+
+  var start = startDate.getValue();
+  var end = endDate.getValue();
+  var country = co.getValue();
+
+  var mask = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017')
+    .filter(ee.Filter.eq('country_co', country));
+  //wld_rgn
+  //country_co
+
+  // aggiungi il doy
+  col = col.map(function(img) {
+    var doy = ee.Date(img.get('system:time_start')).getRelative('day', 'year');
+    return img.set('doy', doy);
+  });
+  //collezione doy
+  var distinctDOY = col.filterDate(start,end);
+
+  // filtra le immagini per doy 
+  var filter = ee.Filter.equals({leftField: 'doy', rightField: 'doy'});
+
+  // join
+  var join = ee.Join.saveAll('doy_matches');
+
+  // FeatureCollection -> ImageCollection
+  var joinCol = ee.ImageCollection(join.apply(distinctDOY, col, filter));
+
+  // Riduttore mediano
+  var comp = joinCol.map(function(img) {
+    var doyCol = ee.ImageCollection.fromImages(
+      img.get('doy_matches')
+    );
+  return doyCol.reduce(ee.Reducer.median())
+    .copyProperties(img, ['system:time_start']);
+});
+
+var visParams = {
+  min: 0.0,
+  max: 9000.0,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+
+// Parametri di visualizzazione della GIF
+  var rgbVis = comp.map(function(img) {
+    return img.visualize(visParams).clip(mask);
+  });
+  
+  return rgbVis;
+}
+//MAIN FINITO
+
+function gifp(aoi){
+  
+  drawingTools.setShape(null);
+
+  // pannello visibile alla prima geometria
+  if (!chartPanel.style().get('shown')) {
+    chartPanel.style().set('shown', true);
+  }
+
+  // Drawing mode off
+  drawingTools.setShape(null);
+  
+  var mapScale = Map.getScale();
+  var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+  
+  var roi = aoi;
+  // GIF parametri di output
+  var gifParams = {
+    'region': roi,
+    'dimensions': 600,
+    'crs': 'EPSG:3857',
+    'framesPerSecond': 10,
+    'format': 'gif'
+  };
+  
+  var thumb = ui.Thumbnail(Main(aoi, roi),gifParams);
+  // Rimpiazza il grafico 
+  chartPanel.widgets().reset([thumb]);
+}
+
+drawingTools.onDraw(ui.util.debounce(gifp, 500));
+drawingTools.onEdit(ui.util.debounce(gifp, 500));
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+var chartPanelC = ui.Panel({
+  style:
+      {height: '235px', width: '600px', position: 'bottom-right', shown: false}
+});
+
+Map.add(chartPanelC);
+
+function chartNdviTimeSeries() {
+  if (!chartPanelC.style().get('shown')) {
+    chartPanelC.style().set('shown', true);
+  }
+
+  var aoi = drawingTools.layers().get(0).getEeObject();
+
+  drawingTools.setShape(null);
+
+  var mapScale = Map.getScale();
+  var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+  
+  var start = startDate.getValue();
+  var end = endDate.getValue();
+
+  var chartNDVI = ui.Chart.image
+                  .seriesByRegion({
+                    imageCollection: ee.ImageCollection('MODIS/061/MOD13A2'),
+                    regions: aoi,
+                    reducer: ee.Reducer.mean(),
+                    band: 'NDVI',
+                    scale: scale,
+                    xProperty: 'system:time_start'
+                  })
+                  .setOptions({
+                    titlePostion: 'none',
+                    legend: {position: 'none'},
+                    hAxis: {title: 'Date'},
+                    vAxis: {title: 'NDVI (x1e4)'},
+                    series: {0: {color: '23cba7'}}
+                  });
+
+  chartPanelC.widgets().reset([chartNDVI]);
+}
+
+drawingTools.onDraw(ui.util.debounce(chartNdviTimeSeries, 500));
+drawingTools.onEdit(ui.util.debounce(chartNdviTimeSeries, 500));
+
+Map.setOptions('Hybrid');
+var locked=0;
+Map.setLocked(locked, 2, 6);
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
