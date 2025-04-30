@@ -5,10 +5,8 @@ This project is developed and maintained by the author Giacomo Alberto Dell'Olio
 
 The codes are executable on Google Earth Engine, simply copy and paste and run them.
 
-## Testers
-1. Acquafredda Anna
-2. Marrone Antonella
-3. Simone Vito
+## Demo
+https://alberto-dellolio.users.earthengine.app/
 
 ## Contact
 For more information, please contact Gilberto25112001@gmail.com.
